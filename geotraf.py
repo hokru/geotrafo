@@ -42,14 +42,18 @@ def printxyz(nat,elem,XYZ):
  for i in range(0,nat):
    print str("% 5.5s % 4.12f % 4.12f % 4.12f" % (elem[i], float(XYZ[i,0]), float(XYZ[i,1]), float(XYZ[i,2]) ))
 
-
-def normalize(v, tolerance=0.00001):
+#normalize, output tuples
+def normalize(v):
     mag2 = sum(n * n for n in v)
-    if abs(mag2 - 1.0) > tolerance:
-        mag = np.sqrt(mag2)
-        v = tuple(n / mag for n in v)
+    mag = np.sqrt(mag2)
+    v = tuple(n / mag for n in v)
     return v
 
+#normalize, output numpy array
+def normalize2(v):
+    norm = np.linalg.norm(v)
+    v=v/norm
+    return v
 
 def q_mult(q1, q2):
     w1, x1, y1, z1 = q1
@@ -92,7 +96,7 @@ def rotvec(axis,vec,degree):
      angle=radians(degree)
      qrot=axisangle_to_q(axis,angle)
      newv = qv_mult(qrot, tupvec)
-     print newv
+#     print newv
      return list(newv)
 
 # input: at1/2 define the atoms that span the axis vector; degree the rotation angle, atlist 
@@ -105,9 +109,74 @@ def rotmol(at1,at2,degree,atlist,XYZ):
       XYZ[i]=rotvec(axis,XYZ[i,:],degree)
     return 
 
+def rotmolMAT(at1,at2,degree,atlist,XYZ):
+    p1=XYZ[at1,:]
+    p2=XYZ[at2,:]
+    axis=np.subtract(p2,p1)
+    k=normalize2(axis)
+    rad=radians(degree)
+    for i in atlist[:]:
+      v=XYZ[i,:]
+#      kxv=np.cross(k,v)
+#      kv=np.inner(k,v)
+#      XYZ[i,:]= v[:]*cos(rad) + kxv[:]*sin(rad) + k[:]*kv*(1.0 - cos(rad))
+      XYZ[i,:]=np.dot(rotation_matrix(axis,rad),v)
+    return
+
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    theta = np.asarray(theta)
+    axis = axis/sqrt(np.dot(axis, axis))
+    a = cos(theta/2.0)
+    b, c, d = -axis*sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+
 # return list of atoms connected to atom a
 def get_atlist(a,XYZ,atlist):
     return
+
+
+def c_dist(di,dj): ##calculate distance between 2 lines of coords
+        x=np.subtract(di,dj)
+        dist=np.linalg.norm(x)
+        return dist
+
+
+def bond_mat(nat,elem,XYZ):
+    cov={'h': 0.6430, 'he': 0.6430,'li': 2.4570,'be': 1.9090,'b': 1.5870, 'c':1.4360,'n': 1.3090,\
+       'o': 1.0960, 'f': 1.1200, 'ne': 0.9450, 'na': 2.9860,'mg': 2.6460,'al':2.4000,'si': 2.1920,\
+       'p': 2.0600,'s': 1.8900,'cl': 1.7950,'ar': 1.7010,'k': 3.8360,'ca:' :3.2880,'sc':2.7210}
+#       2.4940,2.3050,2.2300,2.2110,2.2110,2.1920,2.1730,
+#       2.2110,2.3620,2.3810,2.3050,2.2680,2.1920,2.1540,
+#       2.1160,4.0820,3.6090,3.0610,2.7400,2.5320,2.4570,
+#       2.4000,2.3620,2.3620,2.4190,2.5320,2.7970,2.7210,
+#       2.6650,2.6460,2.5700,2.5130,2.4760,4.4410,3.7420,
+#       3.1940,3.1180,3.1180,3.0990,3.0800,3.0610,3.4960,
+#       3.0420,3.0050,3.0050,2.9860,2.9670,2.9480,2.9480,
+#       2.9480,2.7210,2.5320,2.4570,2.4190,2.3810,2.4000,
+#       2.4570,2.5320,2.8160,2.7970,2.7780,2.7590,2.7590,
+#       2.7400)
+    bonds=[]
+    for i in range(nat): ##create bonding matrix
+        ei=str.lower(elem[i])
+        for j in range(i+1,nat):
+              ej=str.lower(elem[j])
+              dist=c_dist(XYZ[i,:],XYZ[j,:])
+#              check=(float(vdw[ei])+float(vdw[ej]))*factor
+              check=(float(cov[ei])+float(cov[ej]))*0.5
+              if abs(dist-check) <= 0.5:
+                   bonds.append((i,j))
+    return bonds
+
 # --------------------------------------------------------------
 
 #read in command line arg
@@ -124,17 +193,78 @@ XYZ.shape=(nat,3)
 
 print ' # atoms :',nat
 #print ' requested operations :',' -> '.join(map(str,SYM[0]))
-print ' requested operations :',' -> '.join(SYM[0])
+#print ' requested operations :',' -> '.join(SYM[0])
 
-print ' initial xyz:'
-printxyz(nat,elem,XYZ)
+#print ' initial xyz:'
+#3printxyz(nat,elem,XYZ)
+
+# make bonding matrix
+bonds= bond_mat(nat,elem,XYZ)
+
+#x1 = raw_input('name atom number 1')
+#x2= raw_input('name atom number 2')
+x1=28-1
+x2=29-1
+#print elem[x1],XYZ[x1,:]
+#print elem[x2],XYZ[x2,:]
+ax=(x1,x2)
+print 'rotating around',elem[x1],elem[x2],' bond'
+
+# remove the dihedral 2-3 connection, to make at least 2 fragments
+# requirement: x1<x2
+for b in bonds[:]:
+  if ax == b: 
+    bonds.remove(ax)
+
+# process fragments
+mol=[0]
+frags=[]
+ifrag=np.zeros(10)
+found=1
+nr=0
+print ifrag
+while bonds[:]:
+        while found == 1:
+                found=0
+                for i in mol[:]:
+                        for j in bonds[:]:
+                                if i in j:
+                                        if i == j[0]:
+                                                mol.append(j[1])
+                                        if i == j[1]:
+                                                mol.append(j[0])
+                                        bonds.remove(j)
+                                        found=1
+        print 'frag:',nr,' : ', mol
+        #remove mid points
+        if x2 in mol:
+          mol.remove(x2)
+          ifrag[nr]=1
+        if x1 in mol:
+          mol.remove(x1)
+        frags.append(mol)
+        nr+=1
+        if nr >=11:
+	   sys.exit("error: too many fragments found")
+        if bonds[:]:
+                mol=[bonds[0][0]]
+                found=1
+        else:
+                break
 
 
 
-#------------- quarterion tests ---------
+#rotate fragments with ifrag=1
+for f in range(0,nr):
+  if ifrag[f] == 1: 
+    atlist=(frags[f])
+    print 'rotating:',atlist
+    #rotmol(x1,x2,10,atlist,XYZ)
+    rotmolMAT(x1,x2,10,atlist,XYZ)
 
-atlist=([4])
-rotmol(1,3,90,atlist,XYZ)
+                                                 
+#sys.exit("debug end")
+
 
 #-----------------------------------------
 # SYMMETRY OPERATIONS
@@ -151,10 +281,10 @@ MOVE=np.array([[1,0,0,mx],
 
 
 # reflection on plane, sigma_x/y/z
-sigma_x=np.array([[-1, 0, 0, 0],
-                  [ 0, 1, 0, 0],
-                  [ 0, 0, 1, 0],
-                  [ 0, 0, 0, 1]])
+sigma_x=np.array([[-1, 0,0], 
+                  [ 0, 1,0],
+                  [ 0, 0,1], 
+                  [ 0, 0,0]])
 
 sigma_y=np.array([[1,0,0],
                   [0,1,0],
@@ -177,8 +307,8 @@ sigma_z=np.array([[1,0,0],
 #print XYZ
 
 
-print ' modified xyz:'
-printxyz(nat,elem,XYZ)
+#print ' modified xyz:'
+#printxyz(nat,elem,XYZ)
 
 
 writexmol('coord.xyz',nat,XYZ)
