@@ -13,6 +13,9 @@ SYM=[]  # matrix to do symmetry operations
 
 # read xmol-type file
 def readxmol(ifile,elem,xyz):
+   """
+   read xmol file
+   """
         lines = ifile.readlines()
         nat = int(lines[0])
         title = lines[1]
@@ -24,7 +27,10 @@ def readxmol(ifile,elem,xyz):
         return nat
 
 # write xmol-type file
-def writexmol(name,nat,XYZ,title='written by geotrag.py'):
+def writexmol(name,nat,XYZ,title='written by geotraf.py'):
+   """
+   write xmol file with header (optional)
+   """
   ofile = open( name, 'w')
   print >>ofile, str(nat)
   print >>ofile, title
@@ -34,7 +40,9 @@ def writexmol(name,nat,XYZ,title='written by geotrag.py'):
 
 
 def dihedral(p):
-    """khouli formula
+    """
+    dihedral angle from 4 input vector.
+    khouli formula
     1 sqrt, 1 cross product"""
     p0 = p[0]
     p1 = p[1]
@@ -64,16 +72,17 @@ def dihedral(p):
     return np.degrees(np.arctan2(y, x))
 
 
-# transformation matrix
-def transMat(symmetry):
-  print 'dummy'
-
 def printxyz(nat,elem,XYZ):
- for i in range(0,nat):
-   print str("% 5.5s % 4.12f % 4.12f % 4.12f" % (elem[i], float(XYZ[i,0]), float(XYZ[i,1]), float(XYZ[i,2]) ))
+   """
+   print xyz coordinates to screen.
+   """
+   for i in range(0,nat):
+      print str("% 5.5s % 4.12f % 4.12f % 4.12f" % (elem[i], float(XYZ[i,0]), float(XYZ[i,1]), float(XYZ[i,2]) ))
 
-#normalize, output tuples
 def normalize(v):
+    """
+    normalize, output tuples
+    """
     mag2 = sum(n * n for n in v)
     mag = np.sqrt(mag2)
     v = tuple(n / mag for n in v)
@@ -81,11 +90,17 @@ def normalize(v):
 
 #normalize, output numpy array
 def normalize2(v):
+    """
+    normalize, output mumpy array
+    """
     norm = np.linalg.norm(v)
     v=v/norm
     return v
 
 def q_mult(q1, q2):
+    """
+    quarternion-quarternion multiplication
+    """
     w1, x1, y1, z1 = q1
     w2, x2, y2, z2 = q2
     w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
@@ -95,14 +110,23 @@ def q_mult(q1, q2):
     return w, x, y, z
 
 def q_conjugate(q):
+    """
+    quarternion conjugate
+    """
     w, x, y, z = q
     return (w, -x, -y, -z)
 
 def qv_mult(q1, v1):
+    """
+    quarternion-vector multiplication
+    """
     q2 = (0.0,) + v1
     return q_mult(q_mult(q1, q2), q_conjugate(q1))[1:]
 
 def axisangle_to_q(v, theta):
+    """
+    quarternion rotation
+    """
     v = normalize(v)
     x, y, z = v
     theta /= 2
@@ -113,25 +137,33 @@ def axisangle_to_q(v, theta):
     return w, x, y, z
 
 def q_to_axisangle(q):
+    """
+    quarternion rotation
+    """
     w, v = q[0], q[1:]
     theta = acos(w) * 2.0
     return normalize(v), theta
 
-# quarternion rotation
-# input: rotation axis, vector to rotate(eg atom coordinates),rotation in degree
-# output: new vector
-# tuples only internally
 def rotvec(axis,vec,degree):
+     """
+     quarternion rotation
+     input: rotation axis, vector to rotate(eg atom coordinates),rotation in degree
+     output: new vector
+     tuples only internally
+     """
      tupvec=tuple(vec)
      angle=radians(degree)
      qrot=axisangle_to_q(axis,angle)
      newv = qv_mult(qrot, tupvec)
-#     print newv
      return list(newv)
 
 # input: at1/2 define the atoms that span the axis vector; degree the rotation angle, atlist 
 # denotes which atoms to rotate; XYZ contains all coordinates
 def rotmol(at1,at2,degree,atlist,XYZ):
+    """
+    rotation of vectors in atlist using the RotationMatrix from 'RotMatArb'.
+    RotVecArb is the 
+    """
     p1=XYZ[at1,:]
     p2=XYZ[at2,:]
     axis=np.subtract(p2,p1)
@@ -139,30 +171,29 @@ def rotmol(at1,at2,degree,atlist,XYZ):
     for i in sorted(atlist[:]):
       print 'rotating...',i
       v=XYZ[i,:]
-#     dum= RotVecArb(axis,rad,p2,v)
 
-#     oldD= dihedral((XYZ[20,:],p1,p2,v))
+#       * get rotation matrix, then multiply with vector
+#debug     oldD= dihedral((XYZ[20,:],p1,p2,v))
       Rmat= RotMatArb(axis,rad,p2,v)
       XYZ[i,:]=RmatxVec(Rmat,v)
 #     newD= dihedral((XYZ[20,:],p1,p2,XYZ[i,:]))
 #     print newD,oldD,oldD-newD
 
-#     print rotvec(axis,v,degree)
+#       * get vector directly (slower?)
 #      XYZ[i,:]=RotVecArb(axis,rad,p2,v)
-#     XYZ[i,:]=RotMatArb(axis,rad,p2,v)
-#      v=np.subtract(XYZ[i,:],p2[:])
-     # XYZ[i,:]=rotvec(axis,v,degree)+p2
-#      XYZ[i]=rotvec(axis,v,degree)
+
+#       *   using quarternions *
+##      v=np.subtract(XYZ[i,:],p2[:])
+##      XYZ[i,:]=rotvec(axis,v,degree)+p2
     return 
 
 def RmatxVec(rmat,v):
      """
      (4x4) rotation matrix (RotArbMat) times vector to rotate; returns rotated vector
+     homogenous coordinates.
      """
-#     print Rmat
      v=np.append(v,1)
      vrot=np.dot(rmat,v)
-#     print vrot[:3]
      return vrot[:3]
 
 def rotmolMAT(at1,at2,degree,atlist,XYZ):
@@ -173,15 +204,15 @@ def rotmolMAT(at1,at2,degree,atlist,XYZ):
     rad=radians(degree)
     for i in atlist[:]:
       v=np.subtract(XYZ[i,:],p2)
-      vrot=np.dot(rotation_matrix(axis,rad),v)
-#      vrot=np.dot(rotation_matrix2(axis,rad),v)
+#both should work      vrot=np.dot(rotation_matrix(axis,rad),v)
+      vrot=np.dot(rotation_matrix2(axis,rad),v)
       XYZ[i,:]=np.add(vrot,p2)
     return
 
 def rotation_matrix(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about
-    the given axis by theta radians.
+    the given axis by theta radians. translation necessary.
     """
     axis = np.asarray(axis)
     theta = np.asarray(theta)
@@ -198,6 +229,7 @@ def rotation_matrix(axis, theta):
 def rotation_matrix2(axis,theta):
     """
     from Rafal, a bit different (signs). clockwise rotation?
+    translation necessary.
     """
     axis = axis/np.sqrt(np.dot(axis,axis))
     a = np.cos(theta/2.0)
@@ -209,6 +241,10 @@ def rotation_matrix2(axis,theta):
 
 
 def RotMatArb(axis,theta,point,vec):
+    """
+     rotation matrix around arbitrary axis, following http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
+     matrix translated from java code. no translation necessary.
+    """
     a=point[0]
     b=point[1]
     c=point[2]
@@ -235,35 +271,18 @@ def RotMatArb(axis,theta,point,vec):
     m32 = v*w * oneMinusCosT + u*sinT
     m33 = w2 + (u2 + v2) * cosT
     m34 = (c*(u2 + v2) - w*(a*u + b*v))*oneMinusCosT  + (a*v - b*u)*sinT
-#   temp:
-#    x=vec[0]
-#    y=vec[1]
-#    z=vec[2]
-#    rx = m11*x + m12*y + m13*z + m14;
-#    ry = m21*x + m22*y + m23*z + m24;
-#    rz = m31*x + m32*y + m33*z + m34;
-#    print 'rvec',rx,ry,rz
-#    return np.array([rx,ry,rz])
     return np.array([[m11,m12,m13,m14],
                     [m21,m22,m23,m24],
                     [m31,m32,m33,m34],
                     [0,0,0,1]])
-
-#    return np.array([[m11,m21,m31],
-#                     [m12,m22,m32],
-#                     [m13,m23,m33],
-#                     [m14,m24,m34]])
-
 
 
 
 def RotVecArb(axis,theta,point,vec):
     """
      rotation around arbitrary axis, following http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
+     include multiplication of xyz. probably slower.
     """
-#    print 'abc',point
-#    print 'axis',axis
-#    print 'vec',vec
     a=point[0]
     b=point[1]
     c=point[2]
@@ -284,11 +303,6 @@ def RotVecArb(axis,theta,point,vec):
     rx=(a*(v2+w2)-u*(bv+cw-ux-vy-wz))*oneMinusCosT+x*cosT+(-cv+bw-wy+vz)*sinT
     ry=(b*(u2+w2)-v*(au+cw-ux-vy-wz))*oneMinusCosT+y*cosT+(cu-aw+wx-uz)*sinT
     rz=(c*(u2+v2)-w*(au+bv-ux-vy-wz))*oneMinusCosT+z*cosT+(-bu+av-vx+uy)*sinT
-#    print 'rvec',rx,ry,rz
-#    rx = (a*(v2 + w2) - u*(b*v + c*w - u*x - v*y - w*z)) * oneMinusCosT+ x*cosT + (-c*v + b*w - w*y + v*z)*sinT
-#    ry = (b*(u2 + w2) - v*(a*u + c*w - u*x - v*y - w*z)) * oneMinusCosT + y*cosT+ (c*u - a*w + w*x - u*z)*sinT
-#    rz = (c*(u2 + v2) - w*(a*u + b*v - u*x - v*y - w*z)) * oneMinusCosT + z*cosT + (-b*u + a*v - v*x + u*y)*sinT
-#    print 'rvec',rx,ry,rz
     return np.array([rx,ry,rz])
 
 
@@ -324,7 +338,6 @@ def bond_mat(nat,elem,XYZ):
         for j in range(i+1,nat):
               ej=str.lower(elem[j])
               dist=c_dist(XYZ[i,:],XYZ[j,:])
-#              check=(float(vdw[ei])+float(vdw[ej]))*factor
               check=(float(cov[ei])+float(cov[ej]))*0.5
               if abs(dist-check) <= 0.5:
                    bonds.append((i,j))
@@ -340,12 +353,10 @@ def check_bond_lengths(bonds,XYZnew,XYZold,elem):
         distold=c_dist(veci,vecj)
         veca=XYZnew[ai,:]
         vecb=XYZnew[aj,:]
-#        print vecj,vecb
         distnew=c_dist(veca,vecb)
-#        print ai,aj,distnew-distold
         if abs(distold-distnew) >= 0.01:
            print 'ERROR in bond length: [atom1 atom2 delta_distance]', ai+1,'[',elem[ai],']',' - ',aj+1,'[',elem[aj],']',abs(distold-distnew)
-#           status=1
+           status=1
      return status
 
 
