@@ -1,3 +1,5 @@
 # geotrafo
 
-commandline manipulation of molecular coordinates
+commandline manipulation of molecular coordinates.
+
+rotation around arbitrary axis

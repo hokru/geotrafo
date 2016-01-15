@@ -2,8 +2,22 @@
 import sys
 import numpy as np
 from math import sqrt,cos,sin,acos,radians
-#from chemlab.core import Atom, Molecule, System
 
+"""
+             Usage:
+
+
+rotation around arbitrary torsional angles
+
+
+ToDo:
+- PDB files:
+  - read
+  - recognize backbone angles by name from PDB files
+
+- proper input interface
+
+"""
 
 nat=0
 elem = []
