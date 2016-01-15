@@ -134,7 +134,7 @@ def rotvec(axis,vec,degree):
 def rotmol(at1,at2,degree,atlist,XYZ):
     p1=XYZ[at1,:]
     p2=XYZ[at2,:]
-    axis=np.subtract(p2,p1)
+    axis=np.subtract(p1,p2)
     rad=radians(degree)
     for i in sorted(atlist[:]):
      print 'rotating...',i
@@ -397,6 +397,7 @@ for b in bonds[:]:
     bonds.remove(ax)
 
 # process fragments
+# somehow we can end up with duplicates in the fragments, we remove them later with np.unique.
 mol=[0]
 frags=[]
 ifrag=np.zeros(10)
@@ -436,11 +437,13 @@ while bonds[:]:
 
 #rotate fragments with ifrag=1
 for f in range(0,nr):
-  if ifrag[f] == 1: 
-    atlist=(frags[f])
-#    for i in atlist:
-#      print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[i,:]))
-    rotmol(x1,x2,degree,atlist,XYZ)
+#   duplicates=set([x for x in frags[f] if frags[f].count(x) > 1]) # slow!
+#   if duplicates:
+#      print 'ERROR: found duplicated atoms in fragments: ',duplicates
+#      sys.exit("...aborting")
+   if ifrag[f] == 1: 
+     atlist=np.unique(frags[f]) # + remove duplicates!
+     rotmol(x1,x2,degree,atlist,XYZ)
     #rotmolMAT(x1,x2,10,atlist,XYZ)
 
 # now XYZ contains the new, rotated molecule
