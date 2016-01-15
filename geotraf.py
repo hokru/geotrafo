@@ -24,13 +24,44 @@ def readxmol(ifile,elem,xyz):
         return nat
 
 # write xmol-type file
-def writexmol(name,nat,XYZ):
+def writexmol(name,nat,XYZ,title='written by geotrag.py'):
   ofile = open( name, 'w')
   print >>ofile, str(nat)
-  print >>ofile, 'modified by TRxyz'
+  print >>ofile, title
   for i in range(0,nat):
     print >>ofile,  str("% 5.5s % 4.12f % 4.12f % 4.12f" % (elem[i], float(XYZ[i,0]), float(XYZ[i,1]), float(XYZ[i,2]) ))
   ofile.close()
+
+
+def dihedral(p):
+    """khouli formula
+    1 sqrt, 1 cross product"""
+    p0 = p[0]
+    p1 = p[1]
+    p2 = p[2]
+    p3 = p[3]
+
+    b0 = -1.0*(p1 - p0)
+    b1 = p2 - p1
+    b2 = p3 - p2
+
+    # normalize b1 so that it does not influence magnitude of vector
+    # rejections that come next
+    b1 /= np.linalg.norm(b1)
+
+    # vector rejections
+    # v = projection of b0 onto plane perpendicular to b1
+    #   = b0 minus component that aligns with b1
+    # w = projection of b2 onto plane perpendicular to b1
+    #   = b2 minus component that aligns with b1
+    v = b0 - np.dot(b0, b1)*b1
+    w = b2 - np.dot(b2, b1)*b1
+
+    # angle between v and w in a plane is the torsion angle
+    # v and w may not be normalized but that's fine since tan is y/x
+    x = np.dot(v, w)
+    y = np.dot(np.cross(b1, v), w)
+    return np.degrees(np.arctan2(y, x))
 
 
 # transformation matrix
@@ -105,14 +136,17 @@ def rotmol(at1,at2,degree,atlist,XYZ):
     p2=XYZ[at2,:]
     axis=np.subtract(p2,p1)
     rad=radians(degree)
-    for i in atlist[:]:
+    for i in sorted(atlist[:]):
+     print 'rotating...',i
      v=XYZ[i,:]
-     dum= RotVecArb(axis,rad,p2,v)
+#     dum= RotVecArb(axis,rad,p2,v)
+
+     oldD= dihedral((XYZ[20,:],p1,p2,v))
      Rmat= RotMatArb(axis,rad,p2,v)
-     vec=np.ones(4)
-     vec[:3]=v[:3]
-     print vec
-     print np.dot(vec,Rmat)
+     XYZ[i,:]=RmatxVec(Rmat,v)
+     newD= dihedral((XYZ[20,:],p1,p2,XYZ[i,:]))
+     print newD,oldD,oldD-newD
+
 #     print rotvec(axis,v,degree)
 #     XYZ[i,:]=RotVecArb(axis,rad,p2,v)
 #     XYZ[i,:]=RotMatArb(axis,rad,p2,v)
@@ -120,6 +154,16 @@ def rotmol(at1,at2,degree,atlist,XYZ):
 #      XYZ[i,:]=rotvec(axis,v,degree)+p2
 #      XYZ[i]=rotvec(axis,v,degree)
     return 
+
+def RmatxVec(rmat,v):
+     """
+     (4x4) rotation matrix (RotArbMat) times vector to rotate; returns rotated vector
+     """
+#     print Rmat
+     v=np.append(v,1)
+     vrot=np.dot(rmat,v)
+#     print vrot[:3]
+     return vrot[:3]
 
 def rotmolMAT(at1,at2,degree,atlist,XYZ):
     p1=XYZ[at1,:]
@@ -217,9 +261,9 @@ def RotVecArb(axis,theta,point,vec):
     """
      rotation around arbitrary axis, following http://inside.mines.edu/fs_home/gmurray/ArbitraryAxisRotation/
     """
-    print 'abc',point
-    print 'axis',axis
-    print 'vec',vec
+#    print 'abc',point
+#    print 'axis',axis
+#    print 'vec',vec
     a=point[0]
     b=point[1]
     c=point[2]
@@ -237,16 +281,14 @@ def RotVecArb(axis,theta,point,vec):
     bv,cw,ux,vy,wz,cv,bw,wy,vz = b*v,c*w,u*x,v*y,w*z,c*v,b*w,w*y,v*z
     au,cu,aw,wx,uz = a*u,c*u,a*w,w*x,u*z
     bu,av,vx,uy = b*u,a*v,v*x,u*y
-#    rx=(a*(v2+w2)-u*(bv+cw-ux-vy-wz))*oneMinusCosT+x*cosT+(-cv+bw-wy+vz)*sinT
-#    ry=(b*(u2+w2)-v*(au+cw-ux-vy-wz))*oneMinusCosT+y*cosT+(cu-aw+wx-uz)*sinT
-#    rz=(c*(u2+v2)-w*(au+bv-ux-vy-wz))*oneMinusCosT+z*cosT+(-bu+av-vx+uy)*sinT
+    rx=(a*(v2+w2)-u*(bv+cw-ux-vy-wz))*oneMinusCosT+x*cosT+(-cv+bw-wy+vz)*sinT
+    ry=(b*(u2+w2)-v*(au+cw-ux-vy-wz))*oneMinusCosT+y*cosT+(cu-aw+wx-uz)*sinT
+    rz=(c*(u2+v2)-w*(au+bv-ux-vy-wz))*oneMinusCosT+z*cosT+(-bu+av-vx+uy)*sinT
 #    print 'rvec',rx,ry,rz
-    rx = (a*(v2 + w2) - u*(b*v + c*w - u*x - v*y - w*z)) * oneMinusCosT+ x*cosT + (-c*v + b*w - w*y + v*z)*sinT
-
-    ry = (b*(u2 + w2) - v*(a*u + c*w - u*x - v*y - w*z)) * oneMinusCosT + y*cosT+ (c*u - a*w + w*x - u*z)*sinT
-
-    rz = (c*(u2 + v2) - w*(a*u + b*v - u*x - v*y - w*z)) * oneMinusCosT + z*cosT + (-b*u + a*v - v*x + u*y)*sinT
-    print 'rvec',rx,ry,rz
+#    rx = (a*(v2 + w2) - u*(b*v + c*w - u*x - v*y - w*z)) * oneMinusCosT+ x*cosT + (-c*v + b*w - w*y + v*z)*sinT
+#    ry = (b*(u2 + w2) - v*(a*u + c*w - u*x - v*y - w*z)) * oneMinusCosT + y*cosT+ (c*u - a*w + w*x - u*z)*sinT
+#    rz = (c*(u2 + v2) - w*(a*u + b*v - u*x - v*y - w*z)) * oneMinusCosT + z*cosT + (-b*u + a*v - v*x + u*y)*sinT
+#    print 'rvec',rx,ry,rz
     return np.array([rx,ry,rz])
 
 
@@ -288,6 +330,25 @@ def bond_mat(nat,elem,XYZ):
                    bonds.append((i,j))
     return bonds
 
+def check_bond_lengths(bonds,XYZnew,XYZold,elem):
+     status=0
+     for i in bonds[:]:
+        ai=i[0]
+        aj=i[1]
+        veci=XYZold[ai,:]
+        vecj=XYZold[aj,:]
+        distold=c_dist(veci,vecj)
+        veca=XYZnew[ai,:]
+        vecb=XYZnew[aj,:]
+#        print vecj,vecb
+        distnew=c_dist(veca,vecb)
+#        print ai,aj,distnew-distold
+        if abs(distold-distnew) >= 0.01:
+           print 'ERROR in bond length: [atom1 atom2 delta_distance]', ai+1,'[',elem[ai],']',' - ',aj+1,'[',elem[aj],']',abs(distold-distnew)
+#           status=1
+     return status
+
+
 
 # --------------------------------------------------------------
 
@@ -303,6 +364,8 @@ f.close()
 XYZ=np.array([xyz])
 XYZ.shape=(nat,3)
 
+XYZold=np.array(XYZ) # backup
+
 print ' # atoms :',nat
 #print ' requested operations :',' -> '.join(map(str,SYM[0]))
 #print ' requested operations :',' -> '.join(SYM[0])
@@ -312,15 +375,20 @@ print ' # atoms :',nat
 
 # make bonding matrix
 bonds= bond_mat(nat,elem,XYZ)
+bondsOld=tuple(bonds) #backup
 
 #x1 = raw_input('name atom number 1')
 #x2= raw_input('name atom number 2')
 x1=28-1
 x2=29-1
+degree=20
 #print elem[x1],XYZ[x1,:]
 #print elem[x2],XYZ[x2,:]
 ax=(x1,x2)
-print 'rotating around',elem[x1],elem[x2],' bond'
+print 'rotating around bond:',x1+1,'[',elem[x1],']',' - ',x2+1,'[',elem[x2],']','--> ',degree ,'degree'
+
+print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[30,:]))
+
 
 # remove the dihedral 2-3 connection, to make at least 2 fragments
 # requirement: x1<x2
@@ -350,8 +418,8 @@ while bonds[:]:
         print 'frag:',nr,' : ', mol
         #remove mid points
         if x2 in mol:
-          mol.remove(x2)
           ifrag[nr]=1
+          mol.remove(x2)
         if x1 in mol:
           mol.remove(x1)
         frags.append(mol)
@@ -370,13 +438,24 @@ while bonds[:]:
 for f in range(0,nr):
   if ifrag[f] == 1: 
     atlist=(frags[f])
-    print 'rotating:',atlist
-    rotmol(x1,x2,20,atlist,XYZ)
+#    for i in atlist:
+#      print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[i,:]))
+    rotmol(x1,x2,degree,atlist,XYZ)
     #rotmolMAT(x1,x2,10,atlist,XYZ)
 
+# now XYZ contains the new, rotated molecule
+
+#check dihedrals after rotation
+#for f in range(0,nr):
+#  if ifrag[f] == 1:
+#    atlist=(frags[f])
+#    for i in atlist:
+#      print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[i,:]))
+
+
+#print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[30,:]))
                                                  
 #sys.exit("debug end")
-
 
 #-----------------------------------------
 # SYMMETRY OPERATIONS
@@ -418,12 +497,12 @@ sigma_z=np.array([[1,0,0],
 #XYZ=np.dot(XYZ,TRAFO)
 #print XYZ
 
+# check old and new bond lengths
+if check_bond_lengths(bondsOld,XYZ,XYZold,elem) >= 0:
+  print 'rotation error :( '
+# sys.exit("rotation error...stopping")
 
-#print ' modified xyz:'
-#printxyz(nat,elem,XYZ)
-
-
-writexmol('coord.xyz',nat,XYZ)
+writexmol('coord.xyz',nat,XYZ,'rotated molecule')
 
 
 
