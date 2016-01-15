@@ -134,24 +134,24 @@ def rotvec(axis,vec,degree):
 def rotmol(at1,at2,degree,atlist,XYZ):
     p1=XYZ[at1,:]
     p2=XYZ[at2,:]
-    axis=np.subtract(p1,p2)
+    axis=np.subtract(p2,p1)
     rad=radians(degree)
     for i in sorted(atlist[:]):
-     print 'rotating...',i
-     v=XYZ[i,:]
+      print 'rotating...',i
+      v=XYZ[i,:]
 #     dum= RotVecArb(axis,rad,p2,v)
 
-     oldD= dihedral((XYZ[20,:],p1,p2,v))
-     Rmat= RotMatArb(axis,rad,p2,v)
-     XYZ[i,:]=RmatxVec(Rmat,v)
-     newD= dihedral((XYZ[20,:],p1,p2,XYZ[i,:]))
-     print newD,oldD,oldD-newD
+#     oldD= dihedral((XYZ[20,:],p1,p2,v))
+      Rmat= RotMatArb(axis,rad,p2,v)
+      XYZ[i,:]=RmatxVec(Rmat,v)
+#     newD= dihedral((XYZ[20,:],p1,p2,XYZ[i,:]))
+#     print newD,oldD,oldD-newD
 
 #     print rotvec(axis,v,degree)
-#     XYZ[i,:]=RotVecArb(axis,rad,p2,v)
+#      XYZ[i,:]=RotVecArb(axis,rad,p2,v)
 #     XYZ[i,:]=RotMatArb(axis,rad,p2,v)
 #      v=np.subtract(XYZ[i,:],p2[:])
-#      XYZ[i,:]=rotvec(axis,v,degree)+p2
+     # XYZ[i,:]=rotvec(axis,v,degree)+p2
 #      XYZ[i]=rotvec(axis,v,degree)
     return 
 
@@ -173,8 +173,8 @@ def rotmolMAT(at1,at2,degree,atlist,XYZ):
     rad=radians(degree)
     for i in atlist[:]:
       v=np.subtract(XYZ[i,:],p2)
-#      vrot=np.dot(rotation_matrix(axis,rad),v)
-      vrot=np.dot(rotation_matrix2(axis,rad),v)
+      vrot=np.dot(rotation_matrix(axis,rad),v)
+#      vrot=np.dot(rotation_matrix2(axis,rad),v)
       XYZ[i,:]=np.add(vrot,p2)
     return
 
@@ -197,7 +197,7 @@ def rotation_matrix(axis, theta):
 
 def rotation_matrix2(axis,theta):
     """
-    from Rafal, a bit different (signs)
+    from Rafal, a bit different (signs). clockwise rotation?
     """
     axis = axis/np.sqrt(np.dot(axis,axis))
     a = np.cos(theta/2.0)
@@ -444,24 +444,14 @@ for f in range(0,nr):
    if ifrag[f] == 1: 
      atlist=np.unique(frags[f]) # + remove duplicates!
      rotmol(x1,x2,degree,atlist,XYZ)
-    #rotmolMAT(x1,x2,10,atlist,XYZ)
+#also works:     rotmolMAT(x1,x2,degree,atlist,XYZ)
+#     rotmolMAT(x1,x2,degree,atlist,XYZ)
 
 # now XYZ contains the new, rotated molecule
 
-#check dihedrals after rotation
-#for f in range(0,nr):
-#  if ifrag[f] == 1:
-#    atlist=(frags[f])
-#    for i in atlist:
-#      print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[i,:]))
-
-
-#print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[30,:]))
-                                                 
-#sys.exit("debug end")
 
 #-----------------------------------------
-# SYMMETRY OPERATIONS
+# SYMMETRY OPERATIONS (not used)
 
 #translations
 # does need homogeneous coordinates for matrix operations
@@ -501,7 +491,7 @@ sigma_z=np.array([[1,0,0],
 #print XYZ
 
 # check old and new bond lengths
-if check_bond_lengths(bondsOld,XYZ,XYZold,elem) >= 0:
+if check_bond_lengths(bondsOld,XYZ,XYZold,elem) > 0:
   print 'rotation error :( '
 # sys.exit("rotation error...stopping")
 
