@@ -14,7 +14,7 @@ ToDo:
   - read
   - recognize backbone angles by name from PDB files
 
-- proper input interface
+- translation
 
 """
 
@@ -25,7 +25,7 @@ SYM=[]  # matrix to do symmetry operations
 
 
 
-parser = argparse.ArgumentParser(description="rotation & translation of molecular coordinates",epilog="clone a copy @ https://github.com/hokru/geotrafo.git.",usage='%(prog)s [options] <coordinate file>')
+parser = argparse.ArgumentParser(description="rotation (soon: & translation) of molecular coordinates",epilog="grab a copy @ https://github.com/hokru/geotrafo",usage='%(prog)s [options] <coordinate file>')
 
 parser.add_argument("-axis", help="specify two atom numbers for axis of rotation/translation.",type=int,nargs=2,metavar=("atom1","atom2"))
 parser.add_argument("molecule", help="molecular coordinate file (xyz format)",type=str,metavar="<coordinate file>")
@@ -46,6 +46,7 @@ if args.rot:
 print   'translation       : ', args.bond
 if args.bond:
   print '  length [A]      : ', args.l
+  sys.exit("translation not yet implemented! Sry... ")
 
 if args.debug:
    print "debugging mode turned on"
