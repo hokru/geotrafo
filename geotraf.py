@@ -2,10 +2,9 @@
 import sys
 import numpy as np
 from math import sqrt,cos,sin,acos,radians
+import argparse
 
 """
-             Usage:
-
 
 rotation around arbitrary torsional angles
 
@@ -25,32 +24,62 @@ xyz = []
 SYM=[]  # matrix to do symmetry operations
 
 
+
+parser = argparse.ArgumentParser(description="rotation & translation of molecular coordinates",epilog="clone a copy @ https://github.com/hokru/geotrafo.git.",usage='%(prog)s [options] <coordinate file>')
+
+parser.add_argument("-axis", help="specify two atom numbers for axis of rotation/translation.",type=int,nargs=2,metavar=("atom1","atom2"))
+parser.add_argument("molecule", help="molecular coordinate file (xyz format)",type=str,metavar="<coordinate file>")
+parser.add_argument("-rot", help="fragment rotation around given axis/bond", action="store_true")
+parser.add_argument("-bond", help="fragment translation along given axis/bond", action="store_true")
+parser.add_argument("-a","-angle", help="angle of rotation in degree",type=float,metavar="float",default=5.0)
+parser.add_argument("-l","-length", help="length of translation in angstrom",type=float,metavar="float",default=0.1)
+parser.add_argument("--debug", help="print additional output", action="store_true")
+args = parser.parse_args()
+
+print   'file              : ',args.molecule
+print   'input axis:       : ',args.axis[0],args.axis[1]
+ 
+print   'rotation          : ', args.rot
+if args.rot:
+  print '  angle [degree]  : ', args.a
+
+print   'translation       : ', args.bond
+if args.bond:
+  print '  length [A]      : ', args.l
+
+if args.debug:
+   print "debugging mode turned on"
+
+#--------------------------------------
+
+
 # read xmol-type file
 def readxmol(ifile,elem,xyz):
    """
    read xmol file
    """
-        lines = ifile.readlines()
-        nat = int(lines[0])
-        title = lines[1]
-        for l in lines[2:]:
-            type, x, y, z = l.split()
-            xyz.append([float(x),float(y),float(z)])
-            elem.append(type)
-#            xyz.append(l)
-        return nat
+   lines = ifile.readlines()
+   nat = int(lines[0])
+   title = lines[1]
+   for l in lines[2:]:
+       type, x, y, z = l.split()
+       xyz.append([float(x),float(y),float(z)])
+       elem.append(type)
+#       xyz.append(l)
+   return nat
 
 # write xmol-type file
 def writexmol(name,nat,XYZ,title='written by geotraf.py'):
    """
    write xmol file with header (optional)
    """
-  ofile = open( name, 'w')
-  print >>ofile, str(nat)
-  print >>ofile, title
-  for i in range(0,nat):
-    print >>ofile,  str("% 5.5s % 4.12f % 4.12f % 4.12f" % (elem[i], float(XYZ[i,0]), float(XYZ[i,1]), float(XYZ[i,2]) ))
-  ofile.close()
+   ofile = open( name, 'w')
+   print >>ofile, str(nat)
+   print >>ofile, title
+   for i in range(0,nat):
+       print >>ofile,  str("% 5.5s % 4.12f % 4.12f % 4.12f" % (elem[i], float(XYZ[i,0]), float(XYZ[i,1]), float(XYZ[i,2]) ))
+   ofile.close()
+   return
 
 
 def dihedral(p):
@@ -211,6 +240,9 @@ def RmatxVec(rmat,v):
      return vrot[:3]
 
 def rotmolMAT(at1,at2,degree,atlist,XYZ):
+    """
+    similar to rotmol, except it uses the Rodriguez(?) rotation matrices.
+    """
     p1=XYZ[at1,:]
     p2=XYZ[at2,:]
     axis=np.subtract(p2,p1)
@@ -322,32 +354,39 @@ def RotVecArb(axis,theta,point,vec):
 
 
 # return list of atoms connected to atom a
-def get_atlist(a,XYZ,atlist):
-    return
+#def get_atlist(a,XYZ,atlist):
+#    return
 
 
 def c_dist(di,dj): ##calculate distance between 2 lines of coords
+        """
+        cartesian distance between two vectors(coordinates). 
+        """
         x=np.subtract(di,dj)
         dist=np.linalg.norm(x)
         return dist
 
 
 def bond_mat(nat,elem,XYZ):
+    """
+    construct a bonding matrix (atom i, atom j). Bond is assumed when bond_length minus (cov_rad_i+cov_rad_j)/2
+    is smaller then 0.5.
+    """
     cov={'h': 0.6430, 'he': 0.6430,'li': 2.4570,'be': 1.9090,'b': 1.5870, 'c':1.4360,'n': 1.3090,\
        'o': 1.0960, 'f': 1.1200, 'ne': 0.9450, 'na': 2.9860,'mg': 2.6460,'al':2.4000,'si': 2.1920,\
        'p': 2.0600,'s': 1.8900,'cl': 1.7950,'ar': 1.7010,'k': 3.8360,'ca:' :3.2880,'sc':2.7210,\
-       'ti': 2.4940, 'v': 2.3050, 'cr': 2.2300, 'mn': 2.2110,'fe': 2.2110,'co': 2.1920,'ni': 2.1730}
-#       2.2110,2.3620,2.3810,2.3050,2.2680,2.1920,2.1540,
-#       2.1160,4.0820,3.6090,3.0610,2.7400,2.5320,2.4570,
-#       2.4000,2.3620,2.3620,2.4190,2.5320,2.7970,2.7210,
-#       2.6650,2.6460,2.5700,2.5130,2.4760,4.4410,3.7420,
+       'ti': 2.4940, 'v': 2.3050, 'cr': 2.2300, 'mn': 2.2110,'fe': 2.2110,'co': 2.1920,'ni': 2.1730,\
+       'cu': 2.2110,'zn': 2.3620, 'ga': 2.3810, 'ge': 2.3050, 'as': 2.2680,'se': 2.1920, 'br': 2.1540,\
+       'kr': 2.1160,'rb': 4.0820, 'sr': 3.6090,'y': 3.0610,'zr': 2.7400,'nb': 2.5320,'mo': 2.4570,\
+       'tc': 2.4000,'ru': 2.3620,'rh': 2.3620,'pd': 2.4190, 'ag': 2.5320, 'cd': 2.7970,'in': 2.7210,\
+       'sn':  2.6650,'sb': 2.6460,'te': 2.5700,'i': 2.5130,'xe': 2.4760,'cs': 4.4410,'ba': 3.7420}
 #       3.1940,3.1180,3.1180,3.0990,3.0800,3.0610,3.4960,
 #       3.0420,3.0050,3.0050,2.9860,2.9670,2.9480,2.9480,
 #       2.9480,2.7210,2.5320,2.4570,2.4190,2.3810,2.4000,
 #       2.4570,2.5320,2.8160,2.7970,2.7780,2.7590,2.7590,
 #       2.7400)
     bonds=[]
-    for i in range(nat): ##create bonding matrix
+    for i in range(nat): 
         ei=str.lower(elem[i])
         for j in range(i+1,nat):
               ej=str.lower(elem[j])
@@ -378,12 +417,12 @@ def check_bond_lengths(bonds,XYZnew,XYZold,elem):
 # --------------------------------------------------------------
 
 #read in command line arg
-arg1=sys.argv[1] # coord name
-SYM.append(sys.argv[2:])
+#arg1=sys.argv[1] # coord name
+#SYM.append(sys.argv[2:])
 
-
+molname=args.molecule
 # read in coordinates
-f = open(arg1, "r")
+f = open(molname, "r")
 nat = readxmol(f,elem,xyz)
 f.close()
 XYZ=np.array([xyz])
@@ -395,25 +434,20 @@ print ' # atoms :',nat
 #print ' requested operations :',' -> '.join(map(str,SYM[0]))
 #print ' requested operations :',' -> '.join(SYM[0])
 
-#print ' initial xyz:'
-#3printxyz(nat,elem,XYZ)
+
+#set vars
+x1=args.axis[0]-1
+x2=args.axis[1]-1
+degree=args.a
+ax=(x1,x2)
+
+print 'rotating around bond:',x1+1,'[',elem[x1],']',' - ',x2+1,'[',elem[x2],']','--> ',degree ,'degree'
+
+#print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[30,:]))
 
 # make bonding matrix
 bonds= bond_mat(nat,elem,XYZ)
 bondsOld=tuple(bonds) #backup
-
-#x1 = raw_input('name atom number 1')
-#x2= raw_input('name atom number 2')
-x1=28-1
-x2=29-1
-degree=20
-#print elem[x1],XYZ[x1,:]
-#print elem[x2],XYZ[x2,:]
-ax=(x1,x2)
-print 'rotating around bond:',x1+1,'[',elem[x1],']',' - ',x2+1,'[',elem[x2],']','--> ',degree ,'degree'
-
-print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[30,:]))
-
 
 # remove the dihedral 2-3 connection, to make at least 2 fragments
 # requirement: x1<x2
@@ -462,17 +496,12 @@ while bonds[:]:
 
 #rotate fragments with ifrag=1
 for f in range(0,nr):
-#   duplicates=set([x for x in frags[f] if frags[f].count(x) > 1]) # slow!
-#   if duplicates:
-#      print 'ERROR: found duplicated atoms in fragments: ',duplicates
-#      sys.exit("...aborting")
    if ifrag[f] == 1: 
-     atlist=np.unique(frags[f]) # + remove duplicates!
+     atlist=np.unique(frags[f]) #  removes duplicates!
      rotmol(x1,x2,degree,atlist,XYZ)
 #also works:     rotmolMAT(x1,x2,degree,atlist,XYZ)
-#     rotmolMAT(x1,x2,degree,atlist,XYZ)
 
-# now XYZ contains the new, rotated molecule
+# now XYZ contains the new, rotated molecule.
 
 
 #-----------------------------------------
@@ -517,8 +546,7 @@ sigma_z=np.array([[1,0,0],
 
 # check old and new bond lengths
 if check_bond_lengths(bondsOld,XYZ,XYZold,elem) > 0:
-  print 'rotation error :( '
-# sys.exit("rotation error...stopping")
+  sys.exit("rotation error...stopping :-( ")
 
 writexmol('coord.xyz',nat,XYZ,'rotated molecule')
 
