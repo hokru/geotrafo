@@ -23,8 +23,6 @@ elem = []
 xyz = []
 SYM=[]  # matrix to do symmetry operations
 
-
-
 parser = argparse.ArgumentParser(description="rotation (soon: & translation) of molecular coordinates",epilog="grab a copy @ https://github.com/hokru/geotrafo",usage='%(prog)s [options] <coordinate file>')
 
 parser.add_argument("-axis", help="specify two atom numbers for axis of rotation/translation.",type=int,nargs=2,metavar=("atom1","atom2"))
@@ -417,139 +415,143 @@ def check_bond_lengths(bonds,XYZnew,XYZold,elem):
 
 # --------------------------------------------------------------
 
-#read in command line arg
-#arg1=sys.argv[1] # coord name
-#SYM.append(sys.argv[2:])
-
-molname=args.molecule
-# read in coordinates
-f = open(molname, "r")
-nat = readxmol(f,elem,xyz)
-f.close()
-XYZ=np.array([xyz])
-XYZ.shape=(nat,3)
-
-XYZold=np.array(XYZ) # backup
-
-print ' # atoms :',nat
-#print ' requested operations :',' -> '.join(map(str,SYM[0]))
-#print ' requested operations :',' -> '.join(SYM[0])
 
 
-#set vars
-x1=args.axis[0]-1
-x2=args.axis[1]-1
-degree=args.a
-ax=(x1,x2)
+def main():
+  #read in command line arg
+  #arg1=sys.argv[1] # coord name
+  #SYM.append(sys.argv[2:])
 
-print 'rotating around bond:',x1+1,'[',elem[x1],']',' - ',x2+1,'[',elem[x2],']','--> ',degree ,'degree'
+  molname=args.molecule
+  # read in coordinates
+  f = open(molname, "r")
+  nat = readxmol(f,elem,xyz)
+  f.close()
+  XYZ=np.array([xyz])
+  XYZ.shape=(nat,3)
 
-#print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[30,:]))
+  XYZold=np.array(XYZ) # backup
 
-# make bonding matrix
-bonds= bond_mat(nat,elem,XYZ)
-bondsOld=tuple(bonds) #backup
-
-# remove the dihedral 2-3 connection, to make at least 2 fragments
-# requirement: x1<x2
-for b in bonds[:]:
-  if ax == b: 
-    bonds.remove(ax)
-
-# process fragments
-# somehow we can end up with duplicates in the fragments, we remove them later with np.unique.
-mol=[0]
-frags=[]
-ifrag=np.zeros(10)
-found=1
-nr=0
-print ifrag
-while bonds[:]:
-        while found == 1:
-                found=0
-                for i in mol[:]:
-                        for j in bonds[:]:
-                                if i in j:
-                                        if i == j[0]:
-                                                mol.append(j[1])
-                                        if i == j[1]:
-                                                mol.append(j[0])
-                                        bonds.remove(j)
-                                        found=1
-        print 'frag:',nr,' : ', mol
-        #remove mid points
-        if x2 in mol:
-          ifrag[nr]=1
-          mol.remove(x2)
-        if x1 in mol:
-          mol.remove(x1)
-        frags.append(mol)
-        nr+=1
-        if nr >=11:
-	   sys.exit("error: too many fragments found")
-        if bonds[:]:
-                mol=[bonds[0][0]]
-                found=1
-        else:
-                break
+  print ' # atoms :',nat
+  #print ' requested operations :',' -> '.join(map(str,SYM[0]))
+  #print ' requested operations :',' -> '.join(SYM[0])
 
 
+  #set vars
+  x1=args.axis[0]-1
+  x2=args.axis[1]-1
+  degree=args.a
+  ax=(x1,x2)
 
-#rotate fragments with ifrag=1
-for f in range(0,nr):
-   if ifrag[f] == 1: 
-     atlist=np.unique(frags[f]) #  removes duplicates!
-     rotmol(x1,x2,degree,atlist,XYZ)
-#also works:     rotmolMAT(x1,x2,degree,atlist,XYZ)
+  print 'rotating around bond:',x1+1,'[',elem[x1],']',' - ',x2+1,'[',elem[x2],']','--> ',degree ,'degree'
 
-# now XYZ contains the new, rotated molecule.
+  #print dihedral((XYZ[20,:],XYZ[x1,:],XYZ[x2,:],XYZ[30,:]))
 
+  # make bonding matrix
+  bonds= bond_mat(nat,elem,XYZ)
+  bondsOld=tuple(bonds) #backup
 
-#-----------------------------------------
-# SYMMETRY OPERATIONS (not used)
+  # remove the dihedral 2-3 connection, to make at least 2 fragments
+  # requirement: x1<x2
+  for b in bonds[:]:
+    if ax == b: 
+      bonds.remove(ax)
 
-#translations
-# does need homogeneous coordinates for matrix operations
-mx=1
-my=1
-mz=3
-MOVE=np.array([[1,0,0,mx],
-               [0,1,0,mx],
-               [0,0,1,mz],
-               [0,0,0,1]])
-
-
-# reflection on plane, sigma_x/y/z
-sigma_x=np.array([[-1, 0,0], 
-                  [ 0, 1,0],
-                  [ 0, 0,1], 
-                  [ 0, 0,0]])
-
-sigma_y=np.array([[1,0,0],
-                  [0,1,0],
-                  [0,0,1]])
-
-sigma_z=np.array([[1,0,0],
-                  [0,1,0],
-                  [0,0,-1]])
-
-
-# rotations
-#print XYZ
-#TRAFO=np.array(np.dot(sigma_x,MOVE))
-#TRAFO=np.array(sigma_z)
-#print TRAFO
-#print sigma_z
-# do transformation
-#XYZ=np.dot(XYZ,sigma_z)
-#XYZ=np.dot(XYZ,TRAFO)
-#print XYZ
-
-# check old and new bond lengths
-if check_bond_lengths(bondsOld,XYZ,XYZold,elem) > 0:
-  sys.exit("rotation error...stopping :-( ")
-
-writexmol('coord.xyz',nat,XYZ,'rotated molecule')
+  # process fragments
+  # somehow we can end up with duplicates in the fragments, we remove them later with np.unique.
+  mol=[0]
+  frags=[]
+  ifrag=np.zeros(10)
+  found=1
+  nr=0
+  print ifrag
+  while bonds[:]:
+	  while found == 1:
+		  found=0
+		  for i in mol[:]:
+			  for j in bonds[:]:
+				  if i in j:
+					  if i == j[0]:
+						  mol.append(j[1])
+					  if i == j[1]:
+						  mol.append(j[0])
+					  bonds.remove(j)
+					  found=1
+	  print 'frag:',nr,' : ', mol
+	  #remove mid points
+	  if x2 in mol:
+	    ifrag[nr]=1
+	    mol.remove(x2)
+	  if x1 in mol:
+	    mol.remove(x1)
+	  frags.append(mol)
+	  nr+=1
+	  if nr >=11:
+	     sys.exit("error: too many fragments found")
+	  if bonds[:]:
+		  mol=[bonds[0][0]]
+		  found=1
+	  else:
+		  break
 
 
 
+  #rotate fragments with ifrag=1
+  for f in range(0,nr):
+     if ifrag[f] == 1: 
+       atlist=np.unique(frags[f]) #  removes duplicates!
+       rotmol(x1,x2,degree,atlist,XYZ)
+  #also works:     rotmolMAT(x1,x2,degree,atlist,XYZ)
+
+  # now XYZ contains the new, rotated molecule.
+
+
+  #-----------------------------------------
+  # SYMMETRY OPERATIONS (not used)
+
+  #translations
+  # does need homogeneous coordinates for matrix operations
+  mx=1
+  my=1
+  mz=3
+  MOVE=np.array([[1,0,0,mx],
+		 [0,1,0,mx],
+		 [0,0,1,mz],
+		 [0,0,0,1]])
+
+
+  # reflection on plane, sigma_x/y/z
+  sigma_x=np.array([[-1, 0,0], 
+		    [ 0, 1,0],
+		    [ 0, 0,1], 
+		    [ 0, 0,0]])
+
+  sigma_y=np.array([[1,0,0],
+		    [0,1,0],
+		    [0,0,1]])
+
+  sigma_z=np.array([[1,0,0],
+		    [0,1,0],
+		    [0,0,-1]])
+
+
+  # rotations
+  #print XYZ
+  #TRAFO=np.array(np.dot(sigma_x,MOVE))
+  #TRAFO=np.array(sigma_z)
+  #print TRAFO
+  #print sigma_z
+  # do transformation
+  #XYZ=np.dot(XYZ,sigma_z)
+  #XYZ=np.dot(XYZ,TRAFO)
+  #print XYZ
+
+  # check old and new bond lengths
+  if check_bond_lengths(bondsOld,XYZ,XYZold,elem) > 0:
+    sys.exit("rotation error...stopping :-( ")
+
+  writexmol('rot.xyz',nat,XYZ,'rotated molecule')
+
+
+if __name__ == '__main__':
+    main()
